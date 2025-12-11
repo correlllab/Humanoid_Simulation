@@ -24,6 +24,7 @@ docker run --gpus all -it --rm \
   -v /dev/input:/dev/input:ro \
   -v /dev/dri:/dev/dri:rw \
   -v /run/udev:/run/udev:ro \
+  -v /home/$USER/Humanoid_Simulation:/home/code/devdir \
   --publish 8211:8211 \
   --publish 8899:8899 \
   humanoid-sim:latest \
