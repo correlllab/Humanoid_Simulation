@@ -100,6 +100,12 @@ RUN git clone https://github.com/unitreerobotics/unitree_rl_lab.git /home/code/u
       ./source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py && \
     ./unitree_rl_lab.sh -i
 
+# Clone H12 Lab Docs
+RUN git clone https://github.com/correlllab/h12-lab-docs.git /home/code/h12-lab-docs
+
+# Clone H12 Stand
+RUN git clone https://github.com/correlllab/h12_stand.git /home/code/h12_stand
+
 # ==============================
 # Stage 2: Runtime
 # ==============================
@@ -128,8 +134,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /home/code /home/code
 COPY --from=builder /cyclonedds /cyclonedds
 COPY --from=builder /opt/conda /opt/conda
-
-
 
 
 # Initialize bashrc (removed OMNI_KIT_DISABLE_STARTUP)
