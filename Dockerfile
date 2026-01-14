@@ -21,7 +21,7 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://us.archive.ubuntu.com/ubu
 
 # Install build dependencies + X11 support for GUI rendering
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc-12 g++-12 cmake build-essential unzip git-lfs wget \
+    gcc-12 g++-12 cmake build-essential curl unzip git-lfs wget \
     libglu1-mesa-dev vulkan-tools libvulkan1 \
     libx11-6 libxext6 libxrender1 libxi6 libxrandr2 libxcursor1 libxinerama1 \
     libgl1-mesa-glx libglib2.0-0 libsm6 libxt6 libxkbcommon-x11-0 \
@@ -100,12 +100,29 @@ RUN git clone https://github.com/unitreerobotics/unitree_rl_lab.git /home/code/u
       ./source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py && \
     ./unitree_rl_lab.sh -i
 
+
 # Clone H12 Lab Docs
 RUN git clone https://github.com/correlllab/h12-lab-docs.git /home/code/h12-lab-docs
 
 # Clone H12 Stand
 RUN git clone https://github.com/correlllab/h12_stand.git /home/code/h12_stand
 
+#Setup sources
+RUN set -eux; \
+    ROS_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}'); \
+    curl -L -o /tmp/ros2.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_VERSION}/ros2-apt-source_${ROS_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb"; \
+    dpkg -i /tmp/ros2.deb; \
+    rm /tmp/ros2.deb
+
+#Install ros humble desktop and rmw cyclonedds cpp implementation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-desktop \
+    ros-humble-rmw-cyclonedds-cpp \
+    && rm -rf /var/lib/apt/lists/*
+
+#Set environment variables
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV ROS_DISTRO=humble
 # ==============================
 # Stage 2: Runtime
 # ==============================
@@ -134,17 +151,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /home/code /home/code
 COPY --from=builder /cyclonedds /cyclonedds
 COPY --from=builder /opt/conda /opt/conda
+COPY --from=builder /opt/ros/humble /opt/ros/humble
 
+COPY conda_overlay_ros2.sh /home/code/conda_overlay_ros2.sh
 
 # Initialize bashrc (removed OMNI_KIT_DISABLE_STARTUP)
 RUN echo 'source /opt/conda/etc/profile.d/conda.sh' >> ~/.bashrc && \
     echo 'conda activate humanoid_sim_env' >> ~/.bashrc && \
+    echo 'chmod +x /home/code/conda_overlay_ros2.sh && . /home/code/conda_overlay_ros2.sh' >> ~/.bashrc && \
+    echo 'source /opt/ros/humble/setup.sh' >> ~/.bashrc && \ 
     echo 'export OMNI_KIT_ALLOW_ROOT=1' >> ~/.bashrc && \
     echo 'export OMNI_KIT_ACCEPT_EULA=yes' >> ~/.bashrc && \
     echo 'export UNITREE_MODEL_DIR=/home/code/unitree_model' >> ~/.bashrc && \
     echo 'export UNITREE_ROS_DIR=/home/code/unitree_ros' >> ~/.bashrc && \
-    echo 'export CYCLONEDDS_HOME=/cyclonedds/install' >> ~/.bashrc
-
+    echo 'export CYCLONEDDS_HOME=/cyclonedds/install' >> ~/.bashrc && \
+    echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> ~/.bashrc
 
 WORKDIR /home/code
 
