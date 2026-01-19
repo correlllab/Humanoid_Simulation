@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglu1-mesa-dev vulkan-tools libvulkan1 \
     libx11-6 libxext6 libxrender1 libxi6 libxrandr2 libxcursor1 libxinerama1 \
     libgl1-mesa-glx libglib2.0-0 libsm6 libxt6 libxkbcommon-x11-0 \
+    libssl-dev libusb-1.0-0-dev libudev-dev pkg-config libgtk-3-dev coreutils\
+    libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev at v4l-utils udev kmod lsb-release \
     && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 \
     && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100 \
     && rm -rf /var/lib/apt/lists/*
@@ -59,6 +61,26 @@ RUN pip install "isaacsim[all,extscache]==5.0.0" --extra-index-url https://pypi.
 RUN mkdir -p /home/code
 WORKDIR /home/code
 
+RUN apt update && apt install sudo
+
+#installing librealsense drivers early bc it literally takes forever to build
+RUN git clone https://github.com/realsenseai/librealsense.git
+WORKDIR /home/code/librealsense
+RUN mkdir -p /etc/udev/rules.d/
+RUN . scripts/setup_udev_rules.sh
+#subsequent step fails when ran in multi-command 'run' command
+RUN conda run /bin/bash -c bash -c ". scripts/patch-realsense-ubuntu-lts-hwe.sh"
+RUN mkdir build
+RUN cd build
+WORKDIR /home/code/librealsense/build
+RUN cmake ../ -DCMAKE_BUILD_TYPE=Release
+RUN make uninstall
+RUN make clean
+RUN make
+RUN make -j$(($(nproc)-1)) install
+
+WORKDIR /home/code
+
 # Clone and install IsaacLab
 RUN git clone https://github.com/isaac-sim/IsaacLab.git && \
     cd IsaacLab && \
@@ -78,10 +100,10 @@ RUN git clone https://github.com/unitreerobotics/unitree_sdk2_python && \
     cd unitree_sdk2_python && pip install -e .
 
 # Clone unitree_sim_isaaclab
-RUN git clone https://github.com/unitreerobotics/unitree_sim_isaaclab.git /home/code/unitree_sim_isaaclab && \
-    cd /home/code/unitree_sim_isaaclab && pip install -r requirements.txt
+RUN git clone https://github.com/correlllab/CL_isaaclab_sim.git /home/code/CL_isaaclab_sim && \
+    cd /home/code/CL_isaaclab_sim && pip install -r requirements.txt
 
-RUN cd /home/code/unitree_sim_isaaclab && . fetch_assets.sh
+RUN cd /home/code/CL_isaaclab_sim && . fetch_assets.sh
 
 
 # Clone models and ROS
